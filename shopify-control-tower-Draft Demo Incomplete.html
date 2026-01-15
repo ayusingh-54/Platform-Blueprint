@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopify AI Control Tower - Enhanced Demo</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .stat-card { transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .recommendation-card { transition: all 0.3s ease; border-left: 4px solid transparent; }
+        .recommendation-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .recommendation-card.high { border-left-color: #ef4444; }
+        .recommendation-card.medium { border-left-color: #f59e0b; }
+        .recommendation-card.low { border-left-color: #3b82f6; }
+        .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .mbb-insight-box { 
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-left: 5px solid #667eea;
+        }
+        .performance-grid { display: grid; gap: 1rem; }
+        .metric-highlight { 
+            font-size: 2.5rem; 
+            font-weight: 800; 
+            line-height: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .chart-container { 
+            background: #ffffff; 
+            border-radius: 12px; 
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .efficiency-bar { 
+            transition: width 0.8s ease-in-out; 
+        }
+        table { font-size: 13px; }
+        th { font-weight: 700; letter-spacing: 0.5px; }
+        .channel-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .meta-badge { background: #1877f2; color: white; }
+        .tiktok-badge { background: #000000; color: white; }
+        .google-badge { background: #4285f4; color: white; }
+        .shopify-badge { background: #96bf48; color: white; }
+        
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease-out;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from { 
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to { 
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .detail-section {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+        
+        .editable-input {
+            transition: all 0.2s ease;
+        }
+        
+        .editable-input:focus {
+            transform: scale(1.02);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+        
+        .success-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: slideInRight 0.3s ease-out;
+            z-index: 2000;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ============================================
+        // API SERVICE LAYER - Ready for Backend Integration
+        // ============================================
+        
+        const API_BASE_URL = '/api/v1';
+        
+        const APIService = {
+            async getDashboard(brandId) {
+                await this.simulateAPICall(1200);
+                return generateMockData();
+            },
+            
+            async getRecommendations(brandId) {
+                await this.simulateAPICall(800);
+                return generateMockData().recommendations;
+            },
+            
+            async acceptRecommendation(recommendationId, brandId, modifiedValues = null) {
+                await this.simulateAPICall(600);
+                return { 
+                    success: true, 
+                    message: 'Recommendation applied successfully',
+                    appliedValues: modifiedValues 
+                };
+            },
+            
+            async getChannelPerformance(brandId, filters = {}) {
+                await this.simulateAPICall(900);
+                const data = generateMockData();
+                return {
+                    overview: data.channelPerformance,
+                    productLevel: data.productChannelData,
+                    efficiency: data.channelEfficiency
+                };
+            },
+            
+            async getInventoryStatus(brandId) {
+                await this.simulateAPICall(700);
+                return generateMockData().products;
+            },
+            
+            async updateInventoryAlert(sku, threshold) {
+                await this.simulateAPICall(400);
+                return { success: true };
+            },
+            
+            async getGeoPerformance(brandId) {
+                await this.simulateAPICall(850);
+                return generateMockData().geoPerformance;
+            },
+            
+            async askQuestion(brandId, question) {
+                await this.simulateAPICall(1500);
+                const responses = {
+                    'top products': `Based on last 30 days:\n\n1. Essential Oil Set - $15,800 revenue (3.8x ROAS)\n2. Lavender Candle - $12,400 revenue (3.5x ROAS)\n3. Vanilla Bean Candle - $9,200 revenue (3.2x ROAS)`,
+                    'low roas': `2 campaigns under 2.0x ROAS:\n\n1. TikTok Florida: 1.85x ROAS ($2,100 spend)\n2. Meta Generic: 1.92x ROAS ($1,800 spend)\n\nRecommend: Reallocate to California (3.8x ROAS)`,
+                    'stockout': `Critical risks:\n\n1. Citrus Candle: 45 units (3.8 days)\n2. Vanilla Candle: 120 units (6.6 days)\n\nAction: Pause Citrus ads immediately`,
+                    'california': `California Performance:\n• Spend: $6,300\n• Revenue: $22,200\n• ROAS: 3.52x\n• Top: Meta (4.0x)\n\nTexas: 3.50x ROAS. CA performing better.`
+                };
+                
+                const key = Object.keys(responses).find(k => question.toLowerCase().includes(k)) || 'default';
+                return {
+                    question,
+                    answer: responses[key] || `I've analyzed your data. The answer requires reviewing multiple data points across channels, inventory, and performance metrics. Let me break this down...`
+                };
+            },
+            
+            async connectShopify(brandId, authCode) {
+                await this.simulateAPICall(2000);
+                return { success: true, store_name: 'Urban Wellness Co.' };
+            },
+            
+            async syncShopifyData(brandId) {
+                await this.simulateAPICall(3000);
+                return { 
+                    success: true, 
+                    synced: {
+                        products: 156,
+                        orders: 1247,
+                        inventory_locations: 3
+                    }
+                };
+            },
+            
+            async connectMetaAds(brandId, authCode) {
+                await this.simulateAPICall(2500);
+                return { success: true, ad_account_name: 'Urban Wellness Ads' };
+            },
+            
+            async syncMetaAds(brandId) {
+                await this.simulateAPICall(2800);
+                return {
+                    success: true,
+                    synced: {
+                        campaigns: 23,
+                        ad_sets: 67,
+                        performance_days: 90
+                    }
+                };
+            },
+            
+            simulateAPICall(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        };
+
+        // ============================================
+        // MOCK DATA GENERATION
+        // ============================================
+        
+        const generateMockData = () => ({
+            brands: [
+                {
+                    id: 'brand_1',
+                    name: 'Urban Wellness Co.',
+                    shopify_connected: true,
+                    meta_connected: true,
+                    tiktok_connected: false,
+                    google_connected: true,
+                    last_sync: '2025-01-14T10:30:00Z'
+                }
+            ],
+            summary: {
+                total_revenue: 89450,
+                total_spend: 28200,
+                roas: 3.17,
+                revenue_trend: '+18.2%',
+                spend_trend: '+12.5%',
+                roas_trend: '+5.1%'
+            },
+            channelPerformance: [
+                { channel: 'Meta Ads', spend: 12500, revenue: 47800, roas: 3.82, orders: 287, aov: 166.55, trend: '+12%', ctr: 3.8 },
+                { channel: 'Google Ads', spend: 8900, revenue: 28900, roas: 3.25, orders: 156, aov: 185.26, trend: '+8%', ctr: 2.9 },
+                { channel: 'TikTok Ads', spend: 6800, revenue: 12750, roas: 1.88, orders: 89, aov: 143.26, trend: '-3%', ctr: 2.1 }
+            ],
+            geoPerformance: [
+                { state: 'California', spend: 11200, revenue: 42300, roas: 3.78, orders: 245, population: 39500000 },
+                { state: 'Texas', spend: 8600, revenue: 28100, roas: 3.27, orders: 178, population: 29000000 },
+                { state: 'New York', spend: 5400, revenue: 13850, roas: 2.56, orders: 94, population: 19500000 },
+                { state: 'Florida', spend: 3000, revenue: 5200, roas: 1.73, orders: 38, population: 21500000 }
+            ],
+            productChannelData: [
+                { product: 'Essential Oil Set', sku: 'EO-001', meta_roas: 4.2, google_roas: 3.1, tiktok_roas: 2.8, total_revenue: 15800 },
+                { product: 'Lavender Candle', sku: 'CAN-LAV', meta_roas: 3.8, google_roas: 3.9, tiktok_roas: 1.2, total_revenue: 12400 },
+                { product: 'Vanilla Bean Candle', sku: 'CAN-VAN', meta_roas: 3.5, google_roas: 3.2, tiktok_roas: 2.1, total_revenue: 9200 },
+                { product: 'Citrus Refresh Candle', sku: 'CAN-CIT', meta_roas: 2.9, google_roas: 2.5, tiktok_roas: 1.5, total_revenue: 6800 }
+            ],
+            channelEfficiency: [
+                { channel: 'Meta Ads', efficiency_score: 92, ctr: 3.8, cvr: 4.2, cpc: 1.85, cpa: 43.50 },
+                { channel: 'Google Ads', efficiency_score: 85, ctr: 2.9, cvr: 3.8, cpc: 2.10, cpa: 57.05 },
+                { channel: 'TikTok Ads', efficiency_score: 68, ctr: 2.1, cvr: 2.4, cpc: 1.45, cpa: 76.40 }
+            ],
+            products: [
+                { 
+                    name: 'Essential Oil Set', 
+                    sku: 'EO-001', 
+                    price: 25.00,
+                    stock: 245, 
+                    daily_velocity: 18, 
+                    days_of_supply: 13.6, 
+                    status: 'healthy',
+                    revenue_7d: 3200,
+                    units_sold_7d: 126
+                },
+                { 
+                    name: 'Lavender Candle', 
+                    sku: 'CAN-LAV', 
+                    price: 26.67,
+                    stock: 189, 
+                    daily_velocity: 15, 
+                    days_of_supply: 12.6, 
+                    status: 'healthy',
+                    revenue_7d: 2800,
+                    units_sold_7d: 105
+                },
+                { 
+                    name: 'Vanilla Bean Candle', 
+                    sku: 'CAN-VAN', 
+                    price: 24.00,
+                    stock: 120, 
+                    daily_velocity: 18, 
+                    days_of_supply: 6.6, 
+                    status: 'warning',
+                    revenue_7d: 2100,
+                    units_sold_7d: 126
+                },
+                { 
+                    name: 'Citrus Refresh Candle', 
+                    sku: 'CAN-CIT', 
+                    price: 14.29,
+                    stock: 45, 
+                    daily_velocity: 12, 
+                    days_of_supply: 3.8, 
+                    status: 'critical',
+                    revenue_7d: 1200,
+                    units_sold_7d: 84
+                },
+                { 
+                    name: 'Eucalyptus Candle', 
+                    sku: 'CAN-EUC', 
+                    price: 15.89,
+                    stock: 340, 
+                    daily_velocity: 8, 
+                    days_of_supply: 42.5, 
+                    status: 'overstocked',
+                    revenue_7d: 890,
+                    units_sold_7d: 56
+                }
+            ],
+            recommendations: [
+                {
+                    id: 'rec_001',
+                    type: 'budget_reallocation',
+                    priority: 'high',
+                    title: 'Reallocate TikTok Budget to Meta - California Campaign',
+                    description: 'TikTok Florida showing 1.85x ROAS vs Meta California at 3.8x ROAS. Recommend shifting $2,000/week.',
+                    impact: {
+                        revenue_increase: '+$4,200/week',
+                        roas_improvement: '+48%',
+                        estimated_roi: '210%'
+                    },
+                    current_state: {
+                        channel_from: 'TikTok Ads',
+                        campaign_from: 'Florida General',
+                        current_spend: '$2,100/week',
+                        current_roas: '1.85x',
+                        channel_to: 'Meta Ads',
+                        campaign_to: 'California - Wellness Seekers',
+                        target_roas: '3.8x'
+                    },
+                    recommended_action: {
+                        reduce_budget: 2000,
+                        increase_budget: 2000,
+                        timeframe: '7 days',
+                        confidence: '94%'
+                    },
+                    reasoning: [
+                        'California Meta campaigns consistently outperform by 105% vs TikTok Florida',
+                        'TikTok CPA in Florida is $76.40 vs Meta California $43.50',
+                        'Meta California has 30% higher conversion rate (4.2% vs 2.4%)',
+                        'Customer LTV is 40% higher from Meta California audience'
+                    ]
+                },
+                {
+                    id: 'rec_002',
+                    type: 'inventory_alert',
+                    priority: 'high',
+                    title: 'Pause Ads for Citrus Candle - Stockout Risk',
+                    description: 'Citrus Refresh Candle has only 3.8 days of supply. Immediate action required.',
+                    impact: {
+                        revenue_protected: '$8,400',
+                        customer_retention: 'Prevent 45 backorders',
+                        brand_reputation: 'Avoid stockout complaints'
+                    },
+                    current_state: {
+                        product: 'Citrus Refresh Candle',
+                        sku: 'CAN-CIT',
+                        current_stock: 45,
+                        daily_velocity: 12,
+                        days_remaining: 3.8,
+                        active_campaigns: 3,
+                        daily_ad_spend: '$280'
+                    },
+                    recommended_action: {
+                        pause_campaigns: ['Meta - Citrus Launch', 'Google - Citrus Keywords', 'TikTok - Citrus Video'],
+                        reduce_ad_spend: 280,
+                        restock_target: 250,
+                        estimated_restock_days: 7,
+                        confidence: '99%'
+                    },
+                    reasoning: [
+                        'Current velocity will deplete stock in 3.8 days',
+                        'Supplier lead time is 7-10 days minimum',
+                        'Stockouts reduce customer trust by average 23%',
+                        'Backorders cost $18 per unit in fulfillment overhead'
+                    ]
+                },
+                {
+                    id: 'rec_003',
+                    type: 'product_promotion',
+                    priority: 'medium',
+                    title: 'Boost Eucalyptus Candle - Clear Overstock',
+                    description: 'Eucalyptus Candle overstocked (42 days supply). Run promotion to clear excess inventory.',
+                    impact: {
+                        inventory_reduction: '-180 units',
+                        revenue_potential: '+$2,800',
+                        cash_flow_improvement: '$1,890 freed capital'
+                    },
+                    current_state: {
+                        product: 'Eucalyptus Candle',
+                        sku: 'CAN-EUC',
+                        current_stock: 340,
+                        daily_velocity: 8,
+                        days_of_supply: 42.5,
+                        current_margin: '58%',
+                        inventory_cost: '$3,740'
+                    },
+                    recommended_action: {
+                        promotion_type: '20% Off Flash Sale',
+                        duration_days: 5,
+                        ad_budget_increase: 400,
+                        expected_velocity_increase: '3x',
+                        target_reduction: 180,
+                        discount_percentage: 20,
+                        confidence: '87%'
+                    },
+                    reasoning: [
+                        'Inventory holding cost: $62/week for overstock',
+                        '20% discount still maintains 38% margin',
+                        'Historical flash sales increase velocity 2.8-3.2x',
+                        'Frees $1,890 in working capital for better performers'
+                    ]
+                },
+                {
+                    id: 'rec_004',
+                    type: 'audience_expansion',
+                    priority: 'medium',
+                    title: 'Expand Google Ads to New York - Untapped Market',
+                    description: 'New York showing strong organic performance. Increase Google spend by $1,500/week.',
+                    impact: {
+                        revenue_increase: '+$4,800/week',
+                        market_share: '+12% in NY metro',
+                        new_customers: '+85/week'
+                    },
+                    current_state: {
+                        market: 'New York',
+                        current_spend: '$800/week',
+                        current_roas: '2.56x',
+                        organic_conversion_rate: '5.2%',
+                        competitor_spend_level: 'Low',
+                        cpc_trend: 'Decreasing (-8%)'
+                    },
+                    recommended_action: {
+                        increase_budget: 1500,
+                        target_spend: 2300,
+                        new_keywords: ['wellness products nyc', 'aromatherapy manhattan', 'organic candles brooklyn'],
+                        expected_roas: '3.2x',
+                        timeframe: '14 days test',
+                        confidence: '82%'
+                    },
+                    reasoning: [
+                        'Organic traffic from NY converts at 5.2% (company avg: 3.8%)',
+                        'Competitor analysis shows 40% less ad spend vs CA/TX',
+                        'CPC trending down 8% - favorable market conditions',
+                        'NY customer LTV 15% higher than national average'
+                    ]
+                },
+                {
+                    id: 'rec_005',
+                    type: 'creative_refresh',
+                    priority: 'low',
+                    title: 'Refresh Meta Ad Creative - Engagement Drop',
+                    description: 'Meta ad creatives showing 22% engagement decline over 30 days. Time for refresh.',
+                    impact: {
+                        ctr_improvement: '+35%',
+                        cvr_improvement: '+18%',
+                        efficiency_gain: 'Reduce CPA by $8-12'
+                    },
+                    current_state: {
+                        channel: 'Meta Ads',
+                        current_ctr: '3.8%',
+                        ctr_trend_30d: '-22%',
+                        creative_age_days: 47,
+                        frequency: 4.2,
+                        engagement_rate: '2.1%'
+                    },
+                    recommended_action: {
+                        new_creative_sets: 3,
+                        video_ugc_content: true,
+                        carousel_format: true,
+                        ab_test_budget: 800,
+                        production_timeline: '5 days',
+                        confidence: '76%'
+                    },
+                    reasoning: [
+                        'Ad frequency at 4.2 indicates creative fatigue',
+                        'CTR decline of 22% over 30 days signals burnout',
+                        'UGC video content performs 2.3x better in wellness category',
+                        'Competitor analysis shows fresh creative every 30-45 days optimal'
+                    ]
+                }
+            ]
+        });
+
+        // ============================================
+        // COMPONENTS
+        // ============================================
+
+        // Sidebar Navigation Component
+        const Sidebar = ({ currentView, setCurrentView, brand }) => {
+            const navItems = [
+                { id: 'dashboard', label: '🎯 Dashboard', icon: '📊' },
+                { id: 'recommendations', label: '💡 Recommendations', icon: '🤖', badge: '5' },
+                { id: 'channels', label: '📱 Channel Performance', icon: '📈' },
+                { id: 'inventory', label: '📦 Inventory', icon: '📊' },
+                { id: 'geography', label: '🗺️ Geography', icon: '🌎' },
+                { id: 'chat', label: '💬 AI Assistant', icon: '🤖' }
+            ];
+
+            return (
+                <div className="w-72 bg-white border-r border-gray-200 min-h-screen p-6">
+                    <div className="mb-8">
+                        <h1 className="text-2xl font-bold text-gray-900 mb-1">Control Tower</h1>
+                        <p className="text-sm text-gray-500">{brand.name}</p>
+                    </div>
+
+                    <div className="mb-6 p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
+                        <div className="text-xs font-semibold text-purple-900 mb-2">CONNECTED</div>
+                        <div className="flex gap-2 flex-wrap">
+                            {brand.shopify_connected && <span className="shopify-badge">Shopify</span>}
+                            {brand.meta_connected && <span className="meta-badge">Meta</span>}
+                            {brand.tiktok_connected && <span className="tiktok-badge">TikTok</span>}
+                            {brand.google_connected && <span className="google-badge">Google</span>}
+                        </div>
+                    </div>
+
+                    <nav className="space-y-2">
+                        {navItems.map(item => (
+                            <button
+                                key={item.id}
+                                onClick={() => setCurrentView(item.id)}
+                                className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-between ${
+                                    currentView === item.id
+                                        ? 'bg-purple-600 text-white shadow-lg'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                                <span>{item.label}</span>
+                                {item.badge && (
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                        currentView === item.id ? 'bg-white text-purple-600' : 'bg-red-500 text-white'
+                                    }`}>
+                                        {item.badge}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+            );
+        };
+
+        // Success Toast Component
+        const SuccessToast = ({ message, onClose }) => {
+            useEffect(() => {
+                const timer = setTimeout(onClose, 3000);
+                return () => clearTimeout(timer);
+            }, [onClose]);
+
+            return (
+                <div className="success-toast">
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl">✓</span>
+                        <span className="font-semibold">{message}</span>
+                    </div>
+                </div>
+            );
+        };
+
+        // Recommendation Detail Modal Component
+        const RecommendationDetailModal = ({ recommendation, onClose }) => {
+            if (!recommendation) return null;
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b border-gray-200">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                                        {recommendation.title}
+                                    </h2>
+                                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                                        recommendation.priority === 'high' ? 'bg-red-100 text-red-800' :
+                                        recommendation.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-blue-100 text-blue-800'
+                                    }`}>
+                                        {recommendation.priority.toUpperCase()} PRIORITY
+                                    </span>
+                                </div>
+                                <button 
+                                    onClick={onClose}
+                                    className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            {/* Description */}
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Overview</h3>
+                                <p className="text-gray-700">{recommendation.description}</p>
+                            </div>
+
+                            {/* Expected Impact */}
+                            <div className="detail-section">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-3">Expected Impact</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {Object.entries(recommendation.impact).map(([key, value]) => (
+                                        <div key={key} className="bg-white p-4 rounded-lg">
+                                            <div className="text-sm text-gray-600 mb-1">
+                                                {key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                            </div>
+                                            <div className="text-lg font-bold text-purple-600">{value}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Current State */}
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-3">Current State</h3>
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <table className="w-full">
+                                        <tbody>
+                                            {Object.entries(recommendation.current_state).map(([key, value]) => (
+                                                <tr key={key} className="border-b border-gray-200 last:border-0">
+                                                    <td className="py-2 text-sm text-gray-600">
+                                                        {key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                                    </td>
+                                                    <td className="py-2 text-sm font-semibold text-gray-900 text-right">
+                                                        {value}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Recommended Action */}
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-3">Recommended Action</h3>
+                                <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                                    <table className="w-full">
+                                        <tbody>
+                                            {Object.entries(recommendation.recommended_action).map(([key, value]) => (
+                                                <tr key={key} className="border-b border-purple-200 last:border-0">
+                                                    <td className="py-2 text-sm text-purple-900">
+                                                        {key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                                    </td>
+                                                    <td className="py-2 text-sm font-semibold text-purple-900 text-right">
+                                                        {Array.isArray(value) ? value.join(', ') : value}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Reasoning */}
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-3">AI Reasoning</h3>
+                                <ul className="space-y-2">
+                                    {recommendation.reasoning.map((reason, idx) => (
+                                        <li key={idx} className="flex items-start gap-3">
+                                            <span className="text-purple-600 font-bold mt-1">•</span>
+                                            <span className="text-gray-700">{reason}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div className="p-6 border-t border-gray-200 bg-gray-50">
+                            <button 
+                                onClick={onClose}
+                                className="w-full px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Accept/Apply Recommendation Modal Component
+        const AcceptRecommendationModal = ({ recommendation, onClose, onAccept }) => {
+            const [isEditing, setIsEditing] = useState(false);
+            const [modifiedValues, setModifiedValues] = useState({ ...recommendation.recommended_action });
+            const [isApplying, setIsApplying] = useState(false);
+
+            const handleAcceptAll = async () => {
+                setIsApplying(true);
+                await onAccept(recommendation.id, recommendation.recommended_action);
+                setIsApplying(false);
+            };
+
+            const handleAcceptModified = async () => {
+                setIsApplying(true);
+                await onAccept(recommendation.id, modifiedValues);
+                setIsApplying(false);
+            };
+
+            const handleValueChange = (key, value) => {
+                setModifiedValues(prev => ({
+                    ...prev,
+                    [key]: value
+                }));
+            };
+
+            if (!recommendation) return null;
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b border-gray-200">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                                        Apply Recommendation
+                                    </h2>
+                                    <p className="text-gray-600">{recommendation.title}</p>
+                                </div>
+                                <button 
+                                    onClick={onClose}
+                                    className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            {/* Expected Impact Summary */}
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <h3 className="text-lg font-semibold text-green-900 mb-3">Expected Impact</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    {Object.entries(recommendation.impact).map(([key, value]) => (
+                                        <div key={key} className="text-center">
+                                            <div className="text-2xl font-bold text-green-700">{value}</div>
+                                            <div className="text-xs text-green-600 mt-1">
+                                                {key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Editable Parameters */}
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-lg font-semibold text-gray-900">Action Parameters</h3>
+                                    <button
+                                        onClick={() => setIsEditing(!isEditing)}
+                                        className="text-sm text-purple-600 hover:text-purple-700 font-semibold"
+                                    >
+                                        {isEditing ? '✓ Done Editing' : '✏️ Edit Values'}
+                                    </button>
+                                </div>
+                                
+                                <div className="space-y-3">
+                                    {Object.entries(modifiedValues).map(([key, value]) => {
+                                        const isNumeric = typeof value === 'number';
+                                        const isArray = Array.isArray(value);
+                                        
+                                        return (
+                                            <div key={key} className="bg-gray-50 p-4 rounded-lg">
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                    {key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                                </label>
+                                                
+                                                {isEditing && !isArray && !['confidence', 'timeframe'].includes(key) ? (
+                                                    <input
+                                                        type={isNumeric ? 'number' : 'text'}
+                                                        value={value}
+                                                        onChange={(e) => handleValueChange(
+                                                            key, 
+                                                            isNumeric ? parseFloat(e.target.value) : e.target.value
+                                                        )}
+                                                        className="editable-input w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    />
+                                                ) : (
+                                                    <div className="text-lg font-bold text-gray-900">
+                                                        {isArray ? value.join(', ') : value}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Confidence & Warning */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-3xl">🎯</span>
+                                    <div>
+                                        <div className="font-semibold text-blue-900">
+                                            AI Confidence: {recommendation.recommended_action.confidence}
+                                        </div>
+                                        <div className="text-sm text-blue-700">
+                                            This recommendation is based on historical performance data and predictive modeling.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 border-t border-gray-200 bg-gray-50 space-y-3">
+                            {isEditing ? (
+                                <button 
+                                    onClick={handleAcceptModified}
+                                    disabled={isApplying}
+                                    className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:bg-gray-400 transition-colors"
+                                >
+                                    {isApplying ? 'Applying Changes...' : 'Apply with Modified Values'}
+                                </button>
+                            ) : (
+                                <button 
+                                    onClick={handleAcceptAll}
+                                    disabled={isApplying}
+                                    className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-400 transition-colors"
+                                >
+                                    {isApplying ? 'Applying...' : 'Accept & Apply All'}
+                                </button>
+                            )}
+                            
+                            <button 
+                                onClick={onClose}
+                                disabled={isApplying}
+                                className="w-full px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:bg-gray-100 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Enhanced Recommendations View Component
+        const RecommendationsView = ({ data, loading }) => {
+            const [selectedRecommendation, setSelectedRecommendation] = useState(null);
+            const [applyModalRec, setApplyModalRec] = useState(null);
+            const [showToast, setShowToast] = useState(false);
+            const [toastMessage, setToastMessage] = useState('');
+
+            if (loading || !data) {
+                return <div className="text-center py-12">Loading recommendations...</div>;
+            }
+
+            const handleApplyRecommendation = async (recId, values) => {
+                try {
+                    await APIService.acceptRecommendation(recId, 'brand_1', values);
+                    setToastMessage('Recommendation applied successfully!');
+                    setShowToast(true);
+                    setApplyModalRec(null);
+                } catch (error) {
+                    console.error('Failed to apply recommendation:', error);
+                }
+            };
+
+            const getPriorityColor = (priority) => {
+                switch (priority) {
+                    case 'high': return 'text-red-600 bg-red-50 border-red-200';
+                    case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+                    case 'low': return 'text-blue-600 bg-blue-50 border-blue-200';
+                    default: return 'text-gray-600 bg-gray-50 border-gray-200';
+                }
+            };
+
+            const getPriorityIcon = (priority) => {
+                switch (priority) {
+                    case 'high': return '🔴';
+                    case 'medium': return '🟡';
+                    case 'low': return '🔵';
+                    default: return '⚪';
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-bold text-gray-900">AI Recommendations</h2>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600">
+                                {data.recommendations.length} active recommendations
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-4">
+                        {data.recommendations.map((rec) => (
+                            <div
+                                key={rec.id}
+                                className={`recommendation-card bg-white rounded-lg p-6 border ${rec.priority}`}
+                            >
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <span className="text-2xl">{getPriorityIcon(rec.priority)}</span>
+                                            <h3 className="text-lg font-bold text-gray-900">{rec.title}</h3>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(rec.priority)}`}>
+                                                {rec.priority.toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <p className="text-gray-600">{rec.description}</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-4 mb-4">
+                                    {Object.entries(rec.impact).map(([key, value]) => (
+                                        <div key={key} className="bg-purple-50 p-3 rounded-lg">
+                                            <div className="text-xs text-purple-600 font-semibold mb-1">
+                                                {key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                            </div>
+                                            <div className="text-lg font-bold text-purple-900">{value}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setApplyModalRec(rec)}
+                                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                                    >
+                                        Accept & Apply
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedRecommendation(rec)}
+                                        className="px-6 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+                                    >
+                                        Details
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Modals */}
+                    {selectedRecommendation && (
+                        <RecommendationDetailModal
+                            recommendation={selectedRecommendation}
+                            onClose={() => setSelectedRecommendation(null)}
+                        />
+                    )}
+
+                    {applyModalRec && (
+                        <AcceptRecommendationModal
+                            recommendation={applyModalRec}
+                            onClose={() => setApplyModalRec(null)}
+                            onAccept={handleApplyRecommendation}
+                        />
+                    )}
+
+                    {/* Success Toast */}
+                    {showToast && (
+                        <SuccessToast
+                            message={toastMessage}
+                            onClose={() => setShowToast(false)}
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        // Dashboard View Component - ENHANCED WITH CHARTS
+        const DashboardView = ({ data, loading, onRefresh }) => {
+            const chartRef1 = useRef(null);
+            const chartRef2 = useRef(null);
+            const chartInstance1 = useRef(null);
+            const chartInstance2 = useRef(null);
+
+            useEffect(() => {
+                if (!data || loading) return;
+
+                // Destroy existing charts
+                if (chartInstance1.current) chartInstance1.current.destroy();
+                if (chartInstance2.current) chartInstance2.current.destroy();
+
+                // Revenue by Channel Chart
+                if (chartRef1.current) {
+                    const ctx1 = chartRef1.current.getContext('2d');
+                    chartInstance1.current = new Chart(ctx1, {
+                        type: 'bar',
+                        data: {
+                            labels: data.channelPerformance.map(c => c.channel),
+                            datasets: [{
+                                label: 'Revenue ($)',
+                                data: data.channelPerformance.map(c => c.revenue),
+                                backgroundColor: ['#1877f2', '#4285f4', '#000000'],
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                title: { display: true, text: 'Revenue by Channel', font: { size: 16, weight: 'bold' } }
+                            },
+                            scales: {
+                                y: { beginAtZero: true, ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'k' } }
+                            }
+                        }
+                    });
+                }
+
+                // ROAS by Channel Chart
+                if (chartRef2.current) {
+                    const ctx2 = chartRef2.current.getContext('2d');
+                    chartInstance2.current = new Chart(ctx2, {
+                        type: 'line',
+                        data: {
+                            labels: data.channelPerformance.map(c => c.channel),
+                            datasets: [{
+                                label: 'ROAS',
+                                data: data.channelPerformance.map(c => c.roas),
+                                borderColor: '#8b5cf6',
+                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                title: { display: true, text: 'ROAS Performance', font: { size: 16, weight: 'bold' } }
+                            },
+                            scales: {
+                                y: { beginAtZero: true, ticks: { callback: v => v.toFixed(1) + 'x' } }
+                            }
+                        }
+                    });
+                }
+
+                return () => {
+                    if (chartInstance1.current) chartInstance1.current.destroy();
+                    if (chartInstance2.current) chartInstance2.current.destroy();
+                };
+            }, [data, loading]);
+
+            if (loading || !data) return (
+                <div className="flex items-center justify-center h-96">
+                    <div className="text-center">
+                        <div className="animate-spin text-6xl mb-4">⚙️</div>
+                        <p className="text-xl font-semibold text-gray-700">Loading Dashboard...</p>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-bold text-gray-900">Performance Dashboard</h2>
+                        <button 
+                            onClick={onRefresh}
+                            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold"
+                        >
+                            Refresh Data
+                        </button>
+                    </div>
+
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="stat-card bg-white p-6 rounded-xl shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">Total Revenue</div>
+                            <div className="metric-highlight">${(data.summary.total_revenue / 1000).toFixed(1)}k</div>
+                            <div className="text-sm text-green-600 font-semibold mt-2">{data.summary.revenue_trend}</div>
+                        </div>
+                        <div className="stat-card bg-white p-6 rounded-xl shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">Total Spend</div>
+                            <div className="metric-highlight">${(data.summary.total_spend / 1000).toFixed(1)}k</div>
+                            <div className="text-sm text-blue-600 font-semibold mt-2">{data.summary.spend_trend}</div>
+                        </div>
+                        <div className="stat-card bg-white p-6 rounded-xl shadow-sm">
+                            <div className="text-sm text-gray-600 mb-1">Average ROAS</div>
+                            <div className="metric-highlight">{data.summary.roas.toFixed(2)}x</div>
+                            <div className="text-sm text-green-600 font-semibold mt-2">{data.summary.roas_trend}</div>
+                        </div>
+                    </div>
+
+                    {/* Charts */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="chart-container">
+                            <canvas ref={chartRef1} style={{height: '300px'}}></canvas>
+                        </div>
+                        <div className="chart-container">
+                            <canvas ref={chartRef2} style={{height: '300px'}}></canvas>
+                        </div>
+                    </div>
+
+                    {/* Channel Performance Table */}
+                    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-gray-200">
+                            <h3 className="text-lg font-bold text-gray-900">Channel Breakdown</h3>
+                        </div>
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="text-left py-4 px-6">Channel</th>
+                                    <th className="text-right py-4 px-6">Spend</th>
+                                    <th className="text-right py-4 px-6">Revenue</th>
+                                    <th className="text-right py-4 px-6">ROAS</th>
+                                    <th className="text-right py-4 px-6">Orders</th>
+                                    <th className="text-center py-4 px-6">Trend</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.channelPerformance.map((channel, idx) => (
+                                    <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                                        <td className="py-4 px-6">
+                                            <span className={`channel-badge ${
+                                                channel.channel === 'Meta Ads' ? 'meta-badge' : 
+                                                channel.channel === 'Google Ads' ? 'google-badge' : 
+                                                'tiktok-badge'
+                                            }`}>
+                                                {channel.channel}
+                                            </span>
+                                        </td>
+                                        <td className="py-4 px-6 text-right font-semibold">${(channel.spend / 1000).toFixed(1)}k</td>
+                                        <td className="py-4 px-6 text-right font-semibold">${(channel.revenue / 1000).toFixed(1)}k</td>
+                                        <td className="py-4 px-6 text-right">
+                                            <span className="text-lg font-bold text-purple-600">{channel.roas.toFixed(2)}x</span>
+                                        </td>
+                                        <td className="py-4 px-6 text-right font-semibold">{channel.orders}</td>
+                                        <td className="py-4 px-6 text-center">
+                                            <span className={`font-semibold ${
+                                                channel.trend.startsWith('+') ? 'text-green-600' : 'text-red-600'
+                                            }`}>
+                                                {channel.trend}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // Channel Performance View - ENHANCED IMPLEMENTATION
+        const ChannelPerformanceView = ({ data }) => {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            useEffect(() => {
+                if (!data) return;
+
+                if (chartInstance.current) chartInstance.current.destroy();
+
+                if (chartRef.current) {
+                    const ctx = chartRef.current.getContext('2d');
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.channelPerformance.map(c => c.channel),
+                            datasets: [
+                                {
+                                    label: 'Spend',
+                                    data: data.channelPerformance.map(c => c.spend),
+                                    backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                                    borderRadius: 6
+                                },
+                                {
+                                    label: 'Revenue',
+                                    data: data.channelPerformance.map(c => c.revenue),
+                                    backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                                    borderRadius: 6
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: { display: true, text: 'Spend vs Revenue by Channel', font: { size: 16, weight: 'bold' } },
+                                legend: { position: 'top' }
+                            },
+                            scales: {
+                                y: { beginAtZero: true, ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'k' } }
+                            }
+                        }
+                    });
+                }
+
+                return () => {
+                    if (chartInstance.current) chartInstance.current.destroy();
+                };
+            }, [data]);
+
+            if (!data) return (
+                <div className="text-center py-12">
+                    <div className="animate-spin text-6xl mb-4">⚙️</div>
+                    <p className="text-xl font-semibold text-gray-700">Loading channel data...</p>
+                </div>
+            );
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Channel Performance</h2>
+                    
+                    {/* Channel Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {data.channelPerformance.map(channel => (
+                            <div key={channel.channel} className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-shadow">
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className={`channel-badge ${
+                                        channel.channel === 'Meta Ads' ? 'meta-badge' : 
+                                        channel.channel === 'Google Ads' ? 'google-badge' : 
+                                        'tiktok-badge'
+                                    }`}>
+                                        {channel.channel}
+                                    </span>
+                                    <span className={`text-sm font-semibold ${
+                                        channel.trend.startsWith('+') ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                        {channel.trend}
+                                    </span>
+                                </div>
+                                
+                                <div className="mb-4">
+                                    <div className="text-sm text-gray-600">ROAS</div>
+                                    <div className="text-3xl font-bold text-gray-900 mb-1">{channel.roas.toFixed(2)}x</div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <div className="text-xs text-gray-600">Spend</div>
+                                        <div className="font-semibold text-gray-900">${(channel.spend / 1000).toFixed(1)}k</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-gray-600">Revenue</div>
+                                        <div className="font-semibold text-gray-900">${(channel.revenue / 1000).toFixed(1)}k</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-gray-600">Orders</div>
+                                        <div className="font-semibold text-gray-900">{channel.orders}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-gray-600">CTR</div>
+                                        <div className="font-semibold text-gray-900">{channel.ctr}%</div>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <div className="text-xs text-gray-600">AOV</div>
+                                        <div className="font-semibold text-gray-900">${channel.aov.toFixed(2)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Chart */}
+                    <div className="chart-container">
+                        <canvas ref={chartRef} style={{height: '350px'}}></canvas>
+                    </div>
+
+                    {/* Efficiency Metrics */}
+                    {data.channelEfficiency && (
+                        <div className="bg-white rounded-xl shadow-sm p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Channel Efficiency Metrics</h3>
+                            <div className="space-y-4">
+                                {data.channelEfficiency.map((channel, idx) => (
+                                    <div key={idx} className="border-b border-gray-100 pb-4 last:border-0">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="font-semibold text-gray-900">{channel.channel}</span>
+                                            <span className="text-sm font-bold text-purple-600">
+                                                Efficiency: {channel.efficiency_score}/100
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                                            <div 
+                                                className="efficiency-bar bg-gradient-to-r from-purple-500 to-purple-700 h-2 rounded-full"
+                                                style={{width: `${channel.efficiency_score}%`}}
+                                            ></div>
+                                        </div>
+                                        <div className="grid grid-cols-4 gap-3 text-xs">
+                                            <div>
+                                                <div className="text-gray-600">CTR</div>
+                                                <div className="font-semibold">{channel.ctr}%</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-gray-600">CVR</div>
+                                                <div className="font-semibold">{channel.cvr}%</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-gray-600">CPC</div>
+                                                <div className="font-semibold">${channel.cpc.toFixed(2)}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-gray-600">CPA</div>
+                                                <div className="font-semibold">${channel.cpa.toFixed(2)}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+        
+        // Inventory View - COMPLETE IMPLEMENTATION  
+        const InventoryView = ({ data }) => {
+            if (!data) return <div className="text-center py-12">Loading...</div>;
+            const getStatusColor = (s) => s === 'healthy' ? 'bg-green-100 text-green-800' : s === 'warning' ? 'bg-yellow-100 text-yellow-800' : s === 'critical' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800';
+            const criticalCount = data.products.filter(p => p.status === 'critical').length;
+            const warningCount = data.products.filter(p => p.status === 'warning').length;
+            const healthyCount = data.products.filter(p => p.status === 'healthy').length;
+            return (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-bold text-gray-900">Inventory Management</h2>
+                        <div className="flex gap-2">
+                            <div className="px-4 py-2 bg-red-50 border border-red-200 rounded-lg"><span className="text-sm font-semibold text-red-800">{criticalCount} Critical</span></div>
+                            <div className="px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg"><span className="text-sm font-semibold text-yellow-800">{warningCount} Warning</span></div>
+                            <div className="px-4 py-2 bg-green-50 border border-green-200 rounded-lg"><span className="text-sm font-semibold text-green-800">{healthyCount} Healthy</span></div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="text-left py-4 px-6">Product</th>
+                                    <th className="text-left py-4 px-6">SKU</th>
+                                    <th className="text-right py-4 px-6">Stock</th>
+                                    <th className="text-right py-4 px-6">Days Supply</th>
+                                    <th className="text-right py-4 px-6">7D Revenue</th>
+                                    <th className="text-center py-4 px-6">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.products.map(p => (
+                                    <tr key={p.sku} className="border-b border-gray-100 hover:bg-gray-50">
+                                        <td className="py-4 px-6"><div className="font-semibold text-gray-900">{p.name}</div><div className="text-xs text-gray-500">${p.price.toFixed(2)}</div></td>
+                                        <td className="py-4 px-6 text-gray-600">{p.sku}</td>
+                                        <td className="py-4 px-6 text-right"><div className="font-semibold text-gray-900">{p.stock}</div><div className="text-xs text-gray-500">{p.units_sold_7d} sold</div></td>
+                                        <td className="py-4 px-6 text-right font-semibold">{p.days_of_supply.toFixed(1)} days</td>
+                                        <td className="py-4 px-6 text-right font-semibold">${(p.revenue_7d / 1000).toFixed(1)}k</td>
+                                        <td className="py-4 px-6 text-center"><span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(p.status)}`}>{p.status.toUpperCase()}</span></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Geography View - ENHANCED IMPLEMENTATION
+        const GeographyView = ({ data }) => {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            useEffect(() => {
+                if (!data) return;
+
+                if (chartInstance.current) chartInstance.current.destroy();
+
+                if (chartRef.current) {
+                    const ctx = chartRef.current.getContext('2d');
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: data.geoPerformance.map(s => s.state),
+                            datasets: [{
+                                label: 'Revenue by State',
+                                data: data.geoPerformance.map(s => s.revenue),
+                                backgroundColor: [
+                                    'rgba(139, 92, 246, 0.8)',
+                                    'rgba(59, 130, 246, 0.8)',
+                                    'rgba(16, 185, 129, 0.8)',
+                                    'rgba(245, 158, 11, 0.8)'
+                                ],
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: { display: true, text: 'Revenue Distribution by State', font: { size: 16, weight: 'bold' } },
+                                legend: { position: 'bottom' }
+                            }
+                        }
+                    });
+                }
+
+                return () => {
+                    if (chartInstance.current) chartInstance.current.destroy();
+                };
+            }, [data]);
+
+            if (!data) return (
+                <div className="text-center py-12">
+                    <div className="animate-spin text-6xl mb-4">⚙️</div>
+                    <p className="text-xl font-semibold text-gray-700">Loading geography data...</p>
+                </div>
+            );
+
+            const totalRevenue = data.geoPerformance.reduce((sum, s) => sum + s.revenue, 0);
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Geographic Performance</h2>
+                    
+                    {/* State Performance Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {data.geoPerformance.map((state, idx) => {
+                            const revenueShare = ((state.revenue / totalRevenue) * 100).toFixed(1);
+                            return (
+                                <div key={state.state} className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-shadow">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-900">{state.state}</h3>
+                                            <div className="text-sm text-gray-500">Pop: {(state.population / 1000000).toFixed(1)}M</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-3xl font-bold text-purple-600">{state.roas.toFixed(2)}x</div>
+                                            <div className="text-sm text-gray-600">ROAS</div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Revenue Share */}
+                                    <div className="mb-4">
+                                        <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                            <span>Revenue Share</span>
+                                            <span className="font-semibold">{revenueShare}%</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                            <div 
+                                                className="bg-gradient-to-r from-purple-500 to-purple-700 h-2 rounded-full transition-all duration-500"
+                                                style={{width: `${revenueShare}%`}}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                            <div className="text-xs text-gray-600">Spend</div>
+                                            <div className="font-semibold text-gray-900">${(state.spend / 1000).toFixed(1)}k</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-gray-600">Revenue</div>
+                                            <div className="font-semibold text-gray-900">${(state.revenue / 1000).toFixed(1)}k</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-gray-600">Orders</div>
+                                            <div className="font-semibold text-gray-900">{state.orders}</div>
+                                        </div>
+                                    </div>
+                                    
+                                    {idx === 0 && (
+                                        <div className="mt-4 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                                            <div className="text-xs font-semibold text-green-800">🏆 TOP PERFORMER</div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Chart */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="chart-container">
+                            <canvas ref={chartRef} style={{height: '300px'}}></canvas>
+                        </div>
+                        
+                        {/* Performance Comparison Table */}
+                        <div className="bg-white rounded-xl shadow-sm p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Performance Comparison</h3>
+                            <div className="space-y-3">
+                                {data.geoPerformance.map((state, idx) => (
+                                    <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-3 h-3 rounded-full ${
+                                                idx === 0 ? 'bg-purple-500' : 
+                                                idx === 1 ? 'bg-blue-500' : 
+                                                idx === 2 ? 'bg-green-500' : 
+                                                'bg-orange-500'
+                                            }`}></div>
+                                            <span className="font-semibold text-gray-900">{state.state}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-sm font-bold text-gray-900">{state.roas.toFixed(2)}x</div>
+                                            <div className="text-xs text-gray-500">${(state.revenue / 1000).toFixed(0)}k</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Chat View - COMPLETE IMPLEMENTATION
+        const ChatView = () => {
+            const [messages, setMessages] = useState([{role: 'assistant', content: 'Hi! Ask me about your business performance, inventory, channels, or geography.'}]);
+            const [input, setInput] = useState('');
+            const [loading, setLoading] = useState(false);
+            const handleSend = async () => {
+                if (!input.trim()) return;
+                setMessages(prev => [...prev, {role: 'user', content: input}]);
+                setInput('');
+                setLoading(true);
+                try {
+                    const response = await APIService.askQuestion('brand_1', input);
+                    setMessages(prev => [...prev, {role: 'assistant', content: response.answer}]);
+                } catch (error) {
+                    setMessages(prev => [...prev, {role: 'assistant', content: 'Error occurred.'}]);
+                }
+                setLoading(false);
+            };
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-900">AI Assistant</h2>
+                    <div className="bg-white rounded-xl border border-gray-200 flex flex-col" style={{height: '600px'}}>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                            {messages.map((msg, idx) => (
+                                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-2xl px-4 py-3 rounded-lg ${msg.role === 'user' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-900'}`}>{msg.content}</div>
+                                </div>
+                            ))}
+                            {loading && <div className="flex justify-start"><div className="px-4 py-3 rounded-lg bg-gray-100">Thinking...</div></div>}
+                        </div>
+                        <div className="border-t border-gray-200 p-4">
+                            <div className="flex gap-2">
+                                <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSend()} disabled={loading} placeholder="Ask a question..." className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                                <button onClick={handleSend} disabled={loading || !input.trim()} className="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:bg-gray-400">{loading ? 'Thinking...' : 'Send'}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+
+        // Main App Component
+        const App = () => {
+            const [currentView, setCurrentView] = useState('dashboard');
+            const [data, setData] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+
+            useEffect(() => {
+                loadDashboardData();
+            }, []);
+
+            const loadDashboardData = async () => {
+                setLoading(true);
+                setError(null);
+                try {
+                    const dashboardData = await APIService.getDashboard('brand_1');
+                    setData(dashboardData);
+                } catch (err) {
+                    setError('Failed to load dashboard data');
+                    console.error(err);
+                }
+                setLoading(false);
+            };
+
+            const handleRefresh = async () => {
+                await loadDashboardData();
+            };
+
+            const renderView = () => {
+                if (error) {
+                    return (
+                        <div className="flex items-center justify-center h-96">
+                            <div className="text-center">
+                                <div className="text-6xl mb-4">⚠️</div>
+                                <p className="text-xl font-semibold text-gray-700">{error}</p>
+                                <button 
+                                    onClick={loadDashboardData}
+                                    className="mt-4 px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700"
+                                >
+                                    Retry
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }
+
+                if (!data && loading) {
+                    return (
+                        <div className="flex items-center justify-center h-96">
+                            <div className="text-center">
+                                <div className="animate-spin text-6xl mb-4">⚙️</div>
+                                <p className="text-xl font-semibold text-gray-700">Loading Control Tower...</p>
+                            </div>
+                        </div>
+                    );
+                }
+
+                switch (currentView) {
+                    case 'dashboard': return <DashboardView data={data} loading={loading} onRefresh={handleRefresh} />;
+                    case 'recommendations': return <RecommendationsView data={data} loading={loading} />;
+                    case 'channels': return <ChannelPerformanceView data={data} />;
+                    case 'inventory': return <InventoryView data={data} />;
+                    case 'geography': return <GeographyView data={data} />;
+                    case 'chat': return <ChatView />;
+                    default: return <DashboardView data={data} loading={loading} onRefresh={handleRefresh} />;
+                }
+            };
+
+            return (
+                <div className="flex">
+                    <Sidebar 
+                        currentView={currentView} 
+                        setCurrentView={setCurrentView} 
+                        brand={data ? data.brands[0] : { name: 'Loading...', shopify_connected: false, meta_connected: false, tiktok_connected: false, google_connected: false }} 
+                    />
+                    <div className="flex-1 p-8 overflow-y-auto">
+                        {renderView()}
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
